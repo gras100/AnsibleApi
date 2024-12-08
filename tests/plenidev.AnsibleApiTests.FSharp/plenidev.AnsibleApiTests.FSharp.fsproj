@@ -1,0 +1,20 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="ScratchTesting.SnakecaseNumbers.fsx" />
+    <None Include="ExtraVariablesBaseTests.fsx" />
+    <Compile Include="Library.fs" />
+  </ItemGroup>
+
+  <ItemGroup />
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\plenidev.Ansible.Api\plenidev.Ansible.Api.csproj" />
+  </ItemGroup>
+
+</Project>
