@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -8,6 +9,15 @@ using CallerMemberNameAttribute = System.Runtime.CompilerServices.CallerMemberNa
 
 namespace plenidev.Ansible.Api
 {
+    public class AnsibleExtraVarNameOptions
+    {
+        public static readonly AnsibleExtraVarNameOptions Default = new();
+
+        public bool SeparateNumbers { get; init; } = true;
+        public bool AllowSingleCharacterPrefix { get; init; } = false;
+        public bool ConvertToLower { get; init; } = true;
+    }
+
     /// <summary>
     /// <para>
     /// Represents an ansible extra-variable with-in ExtraVarsBase derived classes.
@@ -29,9 +39,9 @@ namespace plenidev.Ansible.Api
 
         #region Construction
 
-        internal AnsibleExtraVar(in string name, in bool setOnce)
+        internal AnsibleExtraVar(string name, bool setOnce, AnsibleExtraVarNameOptions? opts = null)
         {
-            _name = ToAnsibleNameChecked(name);
+            _name = ToAnsibleNameChecked(name, opts ?? AnsibleExtraVarNameOptions.Default);
             _value = null;
             _setOnce = setOnce;
         }
@@ -48,13 +58,13 @@ namespace plenidev.Ansible.Api
             set => _value = CheckedValue(value);
         }
 
-        internal AnsibleExtraVar WithReadOnly(in bool value)
+        internal AnsibleExtraVar WithReadOnly(bool value)
         {
             _readonly = value;
             return this;
         }
 
-        static public AnsibleExtraVar operator +(in AnsibleExtraVar inst, in string value)
+        static public AnsibleExtraVar operator +(AnsibleExtraVar inst, string value)
         {
             if (inst._value == null)
             {
@@ -116,12 +126,9 @@ namespace plenidev.Ansible.Api
             "type",
             ];
 
-        private static readonly Regex snakeCaseReplacer = new("([^_])([A-Z])", RegexOptions.Compiled);
-        private static readonly string snakeCaseReplaceToken = "$1_$2";
+        private static readonly Regex finalNameValidationRe = new("^[A-Za-z_][0-9A-Za-z_]*$", RegexOptions.Compiled);
 
-        private static readonly Regex nameValidationRe = new("[a-z_][0-9a-z_]*", RegexOptions.Compiled);
-
-        private string? CheckedValue(in string value)
+        private string? CheckedValue(string value)
         {
             if(value == null) throw new ArgumentNullException("value");
             if (_setOnce && _value != null) throw new InvalidOperationException("Value has already been set.");
@@ -129,37 +136,74 @@ namespace plenidev.Ansible.Api
             return value;
         }
 
-        private string ToAnsibleNameChecked(in string name)
+        private string ToAnsibleNameChecked(string name, AnsibleExtraVarNameOptions options)
         {
             if (String.IsNullOrEmpty(name)) throw new ArgumentNullException("name");
-            var ansName = ToAnsibleNameUnchecked(name);
-            if (!nameValidationRe.IsMatch(ansName) || pythonKeywords.Contains(ansName))
+            var ansName = ToAnsibleNameUnchecked(name, options);
+            if (!finalNameValidationRe.IsMatch(ansName) || pythonKeywords.Contains(ansName))
             {
                 throw new ArgumentException(
-                    $"Must match regex << {nameValidationRe} >> and not be a python keyword << key: {name} >>.",
+                    $"Ansible name << {ansName} >> for key << {name} >> must match << {finalNameValidationRe} >> and not be a python keyword.",
                     nameof(name)
                     );
             }
             return ansName;
         }
 
-        private string ToAnsibleNameUnchecked(in string name)
+        private string ToAnsibleNameUnchecked(string name, AnsibleExtraVarNameOptions style)
         {
-            return snakeCaseReplacer.Replace(name, snakeCaseReplaceToken);
+            // We are only interested in converting valid dotnet property names to snake case, 
+            // so don't worry about symbols other than '_' turning up; the result will be validated
+            // in the Checked function in anycase, and last resort devs can over-ride keys when 
+            // defining properties in AnsibleExtraVarBase derived classes.
+
+            bool IsUnderscorePoint(char pc, char c) =>
+                c != '_' && pc != '_' && (
+                    (Char.IsUpper(c)) || (
+                    style.SeparateNumbers && Char.IsNumber(pc) != Char.IsNumber(c)
+                    ));
+
+            Debug.WriteLine($"# Starting for name: {name}");
+
+            int lb = style.AllowSingleCharacterPrefix ? 1 : 2;
+            var sb = new StringBuilder(name.Length * 2).Append(name.Substring(0, lb));
+            for(int i = lb; i < name.Length; i++)
+            {
+                var pc = name[i - 1];
+                var c = name[i];
+                Console.WriteLine($"pc={pc}; c={c} ({pc}{c}");
+                if (IsUnderscorePoint(pc, c))
+                {
+                    Debug.WriteLine($"  => \"{pc}_{c}\"");
+                    sb.Append('_').Append(c);
+                }
+                else
+                {
+                    Debug.WriteLine("  => \"{pc}{c}\"");
+                    sb.Append(c);
+                }
+                Debug.WriteLine($"  sb: \"{sb}\"");
+            }
+            if (style.ConvertToLower)
+            {
+                return sb.ToString().ToLowerInvariant();
+            }
+
+            return sb.ToString();
         }
 
         #endregion
 
         #region Json Composition
 
-        public string ToJsonString(in bool compact = true)
+        public string ToJsonString(bool compact = true)
         {
             var assign = compact ? ":" : ": ";
             var escapedValue = JsonEscaped(Value, quoted: false);
             return $"\"{Name}\"{assign}\"{escapedValue}\"";
         }
 
-        private object JsonEscaped(in string value, in bool quoted)
+        private object JsonEscaped(string value, bool quoted)
         {
             var sb = new StringBuilder();
             foreach(var c in value.ToCharArray())
@@ -205,12 +249,14 @@ namespace plenidev.Ansible.Api
     {
         private readonly Dictionary<string, AnsibleExtraVar> _data = [];
 
+        private readonly AnsibleExtraVarNameOptions _options;
+        private readonly bool _setOnce = false;
+
         #region Readonly
 
-        private bool _setOnce = false;
         private bool _readonly = false;
 
-        public void SetREadonly() => _readonly = true;
+        public void SetReadonly() => _readonly = true;
 
         public T AsReadonlyChecked
         {
@@ -234,7 +280,11 @@ namespace plenidev.Ansible.Api
 
         #region Construction
 
-        protected AnsibleExtraVarsBase(in bool setOnce = true) { _setOnce = setOnce; }
+        protected AnsibleExtraVarsBase(bool setOnce = true, AnsibleExtraVarNameOptions? options = null) 
+        { 
+            _setOnce = setOnce; 
+            _options = options ?? AnsibleExtraVarNameOptions.Default;
+        }
 
         #endregion
 
@@ -251,7 +301,7 @@ namespace plenidev.Ansible.Api
         /// <returns></returns>
         protected AnsibleExtraVar BaseGet([CallerMemberName] string key = "")
         {
-            return BaseGet(key);
+            return BaseGetForKey(key);
         }
 
         /// <summary>
@@ -264,12 +314,12 @@ namespace plenidev.Ansible.Api
         /// </summary>
         /// <param name="key">nameof(&lt;DefiningProperty>)</param>
         /// <returns></returns>
-        protected AnsibleExtraVar BaseGet(in string key)
-        {
+        protected AnsibleExtraVar BaseGetForKey(string key)
+        { 
             return GetItemAddIfNeeded(key);
         }
 
-        private AnsibleExtraVar GetItemAddIfNeeded(in string key)
+        private AnsibleExtraVar GetItemAddIfNeeded(string key)
         {
             if(_data.TryGetValue(key, out var value)) { 
                 return value; 
@@ -277,7 +327,7 @@ namespace plenidev.Ansible.Api
 
             if (_readonly) throw new InvalidOperationException("Readonly additions not allowed.");
 
-            value = new AnsibleExtraVar(key, _setOnce);
+            value = new AnsibleExtraVar(key, _setOnce, _options);
             _data.Add(key, value);
             return value;
 
@@ -302,7 +352,7 @@ namespace plenidev.Ansible.Api
         /// </summary>
         /// <param name="value"></param>
         /// <exception cref="InvalidOperationException"></exception>
-        protected void BaseSet(in AnsibleExtraVar value, [CallerMemberName] string key = "")
+        protected void BaseSet(AnsibleExtraVar value, [CallerMemberName] string key = "")
         {
             BaseSet(key, value);
         }
@@ -323,7 +373,7 @@ namespace plenidev.Ansible.Api
         /// <param name="key">nameof(&tl;property>)</param>
         /// <param name="value"></param>
         /// <exception cref="InvalidOperationException"></exception>
-        protected void BaseSet(in string key, in AnsibleExtraVar value)
+        protected void BaseSet(string key, AnsibleExtraVar value)
         {
             var inst = _data[key];
             if(inst.Name != value.Name)
@@ -355,7 +405,7 @@ namespace plenidev.Ansible.Api
         /// </summary>
         /// <param name="value"></param>
         /// <exception cref="InvalidOperationException"></exception>
-        protected void BaseSetConcatOnly(in AnsibleExtraVar value, [CallerMemberName] string key = "")
+        protected void BaseSetConcatOnly(AnsibleExtraVar value, [CallerMemberName] string key = "")
         {
             BaseSetConcatOnly(key, value);
         }
@@ -376,7 +426,7 @@ namespace plenidev.Ansible.Api
         /// <param name="key">nameof(&lt;property>)</param>
         /// <param name="value"></param>
         /// <exception cref="InvalidOperationException"></exception>
-        protected void BaseSetConcatOnly(in string key, in AnsibleExtraVar value)
+        protected void BaseSetConcatOnly(string key, AnsibleExtraVar value)
         {
             var inst = _data[key];
             if (inst.Name != value.Name)
@@ -393,7 +443,7 @@ namespace plenidev.Ansible.Api
 
         #region JSON Composition
 
-        public string ToJsonString(in bool compact = true)
+        public string ToJsonString(bool compact = true)
         {
             const char open = '{';
             const char close = '}';
