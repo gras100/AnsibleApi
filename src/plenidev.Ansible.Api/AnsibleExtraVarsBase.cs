@@ -9,12 +9,52 @@ using CallerMemberNameAttribute = System.Runtime.CompilerServices.CallerMemberNa
 
 namespace plenidev.Ansible.Api
 {
+    /// <summary>
+    /// Options used when translating PropertyNames into Ansible Extra-Variable
+    /// names, which are snake case, but with various conventions.
+    /// </summary>
     public class AnsibleExtraVarNameOptions
     {
         public static readonly AnsibleExtraVarNameOptions Default = new();
 
+        /// <summary>
+        /// <para>
+        /// If true, '_',  when not already present, will be inserted before and 
+        /// after numbers in the name being translated.
+        /// </para><para>
+        /// Examples (true vs false):
+        /// </para>
+        /// <para>
+        /// <c>ab10cd -> ab_10_cd vs ab10cd</c>
+        /// </para><para>
+        /// <c>Ab10Cd -> ab_10_cd vs ab10_cd</c>
+        /// </para>
+        /// <para>
+        /// <c>Ab_10Cd -> ab_10_cd vs ab_10_cd</c>
+        /// </para>
+        /// </summary>
+        /// <remarks>Other options may effect this in some cases, e.g., if a number 
+        /// appears as the 2nd character and AllowSingleCharacterPrefix is false.
+        /// </remarks>
         public bool SeparateNumbers { get; init; } = true;
+
+        /// <summary>
+        /// <para>
+        /// If true, '_' may be inserted in the second position of an Ansible name
+        /// otherwise it can only come later.
+        /// </para><para>
+        /// Examples (true vs false):
+        /// </para><para>
+        /// <c>ABc -> a_bc  vs abc</c>
+        /// </para><para>
+        /// <c>a1c -> a_1_c vs a1_c</c>
+        /// </para>
+        /// </summary>
         public bool AllowSingleCharacterPrefix { get; init; } = false;
+
+        /// <summary>
+        /// If true (the default), resulting Ansible names will always be lower cased.
+        /// </summary>
         public bool ConvertToLower { get; init; } = true;
     }
 
@@ -400,10 +440,10 @@ namespace plenidev.Ansible.Api
 
         /// <summary>
         /// <para>
-        /// Derived classes wishing to support both
+        /// Derived classes wishing to support
         /// </para><para>
         /// <c>Inst.Property += "value";</c>
-        /// </para><para>and</para><para>
+        /// </para><para>but not</para><para>
         /// <c>Inst.Property = new AnsibleExtraVar(...)</c>
         /// </para><para>
         /// syntax should use this method to define properties as
@@ -420,10 +460,10 @@ namespace plenidev.Ansible.Api
 
         /// <summary>
         /// <para>
-        /// Derived classes wishing to support both
+        /// Derived classes wishing to support
         /// </para><para>
         /// <c>Inst.Property += "value";</c>
-        /// </para><para>and</para><para>
+        /// </para><para>but not</para><para>
         /// <c>Inst.Property = new AnsibleExtraVar(...)</c>
         /// </para><para>
         /// syntax should use this method to define properties as
