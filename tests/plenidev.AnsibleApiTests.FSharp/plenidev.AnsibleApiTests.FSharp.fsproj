@@ -8,7 +8,6 @@
   <ItemGroup>
     <None Include="ScratchTesting.SnakecaseNumbers.fsx" />
     <None Include="ExtraVariablesBaseTests.fsx" />
-    <Compile Include="Library.fs" />
   </ItemGroup>
 
   <ItemGroup />

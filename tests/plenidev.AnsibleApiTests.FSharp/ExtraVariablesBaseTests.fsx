@@ -29,27 +29,26 @@ module ExtraVariablesBaseTests =
             member __.SetThroughValuePropForKeyNameof = 
                 __.BaseGetForKey(nameof(t.SetThroughValuePropForKeyNameof))
 
-            member __.SetThroughValuePropByMemberName = 
-                __.BaseGet()
+            member __.SetThroughValuePropByMemberName = __.BaseGet()
 
             //
-            member __.NonConcatPropForKeyNameof
-                with get() = __.BaseGetForKey(nameof(t.NonConcatPropForKeyNameof))
-                 and set(value) = __.BaseSet(nameof(t.NonConcatPropForKeyNameof), value)
+            member __.ConcatOrSetPropForKeyNameof
+                with get() = __.BaseGetForKey(nameof(t.ConcatOrSetPropForKeyNameof))
+                 and set(value) = __.BaseSet(nameof(t.ConcatOrSetPropForKeyNameof), value)
 
-            member __.ConcatPropForKeyNameof
-                with get() = __.BaseGetForKey(nameof(t.ConcatPropForKeyNameof))
-                 and set(value) = __.BaseSetConcatOnly(nameof(t.ConcatPropForKeyNameof), value)
+            member __.ConcatOnlyPropForKeyNameof
+                with get() = __.BaseGetForKey(nameof(t.ConcatOnlyPropForKeyNameof))
+                 and set(value) = __.BaseSetConcatOnly(nameof(t.ConcatOnlyPropForKeyNameof), value)
 
             //
-
-            member __.ConcatPropByMemberName
-                with get() = __.BaseGet()
-                 and set(value) = __.BaseSetConcatOnly(value)
-            //
-            member __.NonConcatPropByMemberName
+            
+            member __.ConcatOrSetPropByMemberName
                 with get() = __.BaseGet()
                  and set(value) = __.BaseSet(value)
+
+            member __.ConcatOnlyPropByMemberName
+                with get() = __.BaseGet()
+                 and set(value) = __.BaseSetConcatOnly(value)
 
             //
 
@@ -107,7 +106,6 @@ module ExtraVariablesBaseTests =
             ConvertToLower = false
             )
 
-
     module Tests = 
 
         [<AutoOpen>]
@@ -117,6 +115,12 @@ module ExtraVariablesBaseTests =
                 if v.Name = name 
                 then true, (n, "Pass")
                 else false, (n, $"Failed: {v.Name} vs {name}.")
+
+            // Create F♯ helpers class.
+            let inline (+=) (envar: Api.AnsibleExtraVar) (value: string) = 
+                // In C♯ + is the only way to get +=, and envar += <value> would be used.
+                // In F♯'s immutable world we define an operator.
+                envar + value
 
         let testPrfxNumLower() = 
 
@@ -157,9 +161,45 @@ open ExtraVariablesBaseTests.OptionInsts
 
 ExtraVariablesBaseTests.Tests.testPrfxNumLower()
 
-let envar = SimpleEnvVars(setOnce = false, options = prfxNumLower)
+// Create F♯ helpers class.
+let inline (+=) (envar: Api.AnsibleExtraVar) (value: string) = 
+    // In C♯ + is the only way to get +=, and envar += <value> would be used.
+    // In F♯'s immutable world we define an operator.
+    envar + value
 
+let envar1 = SimpleEnvVars(setOnce = false, options = prfxNumLower)
+let envar2 = SimpleEnvVars(setOnce = false, options = prfxNumLower)
 
-envar.ConcatPropByMemberName.Value <- ""
-envar.ConcatPropByMemberName
-envar.NonConcatPropForKeyNameof + "xx"
+// 1
+
+envar1.ConcatOrSetPropByMemberName += ""
+envar1.ConcatOrSetPropByMemberName <- envar1.ConcatOrSetPropByMemberName
+
+envar1.ToJsonString(compact = false)
+    
+// 2
+envar1.ConcatOnlyPropByMemberName += "xx" // in C♯ + => +=; it's not clear what this should be in F♯'s immutable centric world.
+envar2.ConcatOnlyPropByMemberName += "yy"
+envar1.ConcatOnlyPropByMemberName <- envar1.ConcatOnlyPropByMemberName
+try 
+    envar1.ConcatOnlyPropByMemberName <- envar2.ConcatOnlyPropByMemberName
+    printfn "failed: should throw, value diff, use concat."
+with :? System.InvalidOperationException as e ->
+    printfn $"Passed with expected exception {e}"
+
+envar2.ToJsonString()
+
+// 3
+
+try
+    envar1.ConcatOrSetPropByMemberName <- envar1.ConcatOnlyPropByMemberName // different prop.
+    printfn "failed: should throw, name diff error."
+with :? System.InvalidOperationException as e -> 
+    printfn $"Passed with expected exception {e}"
+
+// 3
+envar1.A1b2C30d40x60 += "value"
+
+envar1.ToJsonString()
+envar2.ToJsonString()
+
