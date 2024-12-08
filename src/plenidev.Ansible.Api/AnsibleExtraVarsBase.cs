@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Text;
 using System.Text.RegularExpressions;
+using plenidev.Common;
 
 using CallerMemberNameAttribute = System.Runtime.CompilerServices.CallerMemberNameAttribute;
-
 
 namespace plenidev.Ansible.Api
 {
@@ -130,24 +130,33 @@ namespace plenidev.Ansible.Api
 
         private string? CheckedValue(string value)
         {
-            if(value == null) throw new ArgumentNullException("value");
-            if (_setOnce && _value != null) throw new InvalidOperationException("Value has already been set.");
-            if (_readonly) throw new InvalidOperationException("Class is readonly.");
+            ExceptionHelpers.ThrowIfNull(value);
+            ExceptionHelpers.ThrowIf(_setOnce && _value != null);
+            ExceptionHelpers.ThrowIf(_readonly);
+
             return value;
         }
 
         private string ToAnsibleNameChecked(string name, AnsibleExtraVarNameOptions options)
         {
-            if (String.IsNullOrEmpty(name)) throw new ArgumentNullException("name");
-            var ansName = ToAnsibleNameUnchecked(name, options);
-            if (!finalNameValidationRe.IsMatch(ansName) || pythonKeywords.Contains(ansName))
+            ExceptionHelpers.ThrowIfNullOrEmpty(name);
+
+            var ansibleName = ToAnsibleNameUnchecked(name, options);
+
+            if(!finalNameValidationRe.IsMatch(ansibleName) || pythonKeywords.Contains(ansibleName))
             {
-                throw new ArgumentException(
-                    $"Ansible name << {ansName} >> for key << {name} >> must match << {finalNameValidationRe} >> and not be a python keyword.",
-                    nameof(name)
-                    );
+                ThrowOnBadAnsibleName(ansibleName, name, "key");
             }
-            return ansName;
+
+            return ansibleName;
+        }
+
+        private void ThrowOnBadAnsibleName(string ansibleName, string name, string paramName)
+        {
+            throw new ArgumentException(
+                $"Ansible name << {ansibleName} >> for key << {name} >> must match << {finalNameValidationRe} >> and not be a python keyword.",
+                paramName
+                );
         }
 
         private string ToAnsibleNameUnchecked(string name, AnsibleExtraVarNameOptions style)
@@ -262,7 +271,7 @@ namespace plenidev.Ansible.Api
         {
             get
             {
-                if (_readonly) throw new InvalidOperationException("Readonly already.");
+                ExceptionHelpers.ThrowIf(_readonly);
                 return AsReadonlyChecked;
             }
         }
@@ -325,7 +334,7 @@ namespace plenidev.Ansible.Api
                 return value; 
             }
 
-            if (_readonly) throw new InvalidOperationException("Readonly additions not allowed.");
+            ExceptionHelpers.ThrowIf(_readonly);
 
             value = new AnsibleExtraVar(key, _setOnce, _options);
             _data.Add(key, value);
@@ -376,10 +385,9 @@ namespace plenidev.Ansible.Api
         protected void BaseSet(string key, AnsibleExtraVar value)
         {
             var inst = _data[key];
-            if(inst.Name != value.Name)
-            {
-                throw new InvalidOperationException($"Names are read-only.");
-            }
+
+            ExceptionHelpers.ThrowIf(inst.Name != value.Name);
+
             if(inst.Value == value.Value)
             {
                 // avoids triggering setOnce logic when += has 
@@ -429,15 +437,17 @@ namespace plenidev.Ansible.Api
         protected void BaseSetConcatOnly(string key, AnsibleExtraVar value)
         {
             var inst = _data[key];
-            if (inst.Name != value.Name)
-            {
-                throw new InvalidOperationException($"Names are read-only.");
-            }
+
+            ExceptionHelpers.ThrowIf(inst.Name != value.Name);
+
             if (inst.Value != value.Value)
             {
-                throw new InvalidOperationException($"Values must be set using += <string_value> or Value property directly.");
+                ThrowNotSetViaConcatOperatorException();
             }
         }
+
+        private void ThrowNotSetViaConcatOperatorException() =>
+            throw new InvalidOperationException($"Values must be set using += <string_value> or their Value property.");
 
         #endregion
 
