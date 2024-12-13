@@ -3,17 +3,18 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+	  <LangVersion>latest</LangVersion>
+	  <Nullable>enable</Nullable>
   </PropertyGroup>
 
   <ItemGroup>
+    <None Include="AnsibleHelpersBaseTesting.fsx" />
     <None Include="ScratchTesting.SnakecaseNumbers.fsx" />
     <None Include="ExtraVariablesBaseTests.fsx" />
   </ItemGroup>
 
-  <ItemGroup />
-
   <ItemGroup>
-    <ProjectReference Include="..\..\src\plenidev.Ansible.Api\plenidev.Ansible.Api.csproj" />
+    <ProjectReference Include="..\..\src\AnsiblePlayer\AnsiblePlayer.csproj" />
   </ItemGroup>
 
 </Project>

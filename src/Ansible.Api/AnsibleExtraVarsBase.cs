@@ -1,9 +1,15 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Xml.Linq;
 using plenidev.Common;
+using static plenidev.Common.JsonHelpers;
 
 using CallerMemberNameAttribute = System.Runtime.CompilerServices.CallerMemberNameAttribute;
 
@@ -58,6 +64,14 @@ namespace plenidev.Ansible.Api
         public bool ConvertToLower { get; init; } = true;
     }
 
+
+    internal interface IAnsibleVariable
+    {
+        string Name { get; }
+        public object Value { get; }
+        public string ToJsonString(bool compact = true);
+    }
+
     /// <summary>
     /// <para>
     /// Represents an ansible extra-variable with-in ExtraVarsBase derived classes.
@@ -69,20 +83,23 @@ namespace plenidev.Ansible.Api
     /// JSON fragment.
     /// </para>
     /// </summary>
-    public sealed class AnsibleExtraVar
+    public class AnsibleVariableBase<T>
     {
-        private readonly bool _setOnce;
+        protected readonly bool _setOnce;
 
-        private bool _readonly;
-        private readonly string _name;
-        private string? _value;
+        protected bool _readonly;
+        protected readonly string _name;
+        //private readonly JsonType _jsonType;
+        protected bool _empty;
+        protected T? _value;
 
         #region Construction
 
-        internal AnsibleExtraVar(string name, bool setOnce, AnsibleExtraVarNameOptions? opts = null)
+        internal AnsibleVariableBase(string name, bool setOnce, AnsibleExtraVarNameOptions? opts = null)
         {
             _name = ToAnsibleNameChecked(name, opts ?? AnsibleExtraVarNameOptions.Default);
-            _value = null;
+            _empty = false;
+            _value = default;
             _setOnce = setOnce;
         }
 
@@ -92,30 +109,35 @@ namespace plenidev.Ansible.Api
 
         public string Name => _name;
 
-        public string Value
+        public T Value
         {
-            get => _value! == null ? throw new InvalidOperationException("Value must be set before getting.") : _value;
+            get
+            {
+                if (_value == null) throw new InvalidOperationException("Value must be set before getting.");
+                return _value!;       
+            }
             set => _value = CheckedValue(value);
         }
 
-        internal AnsibleExtraVar WithReadOnly(bool value)
+        internal AnsibleVariableBase<T> WithReadOnly(bool value)
         {
             _readonly = value;
             return this;
         }
 
-        static public AnsibleExtraVar operator +(AnsibleExtraVar inst, string value)
+        #region Set/Replace Operator
+
+        static public AnsibleVariableBase<T> operator <<(AnsibleVariableBase<T> inst, T? value)
         {
-            if (inst._value == null)
-            {
-                inst._value = value;
-            }
-            else
-            {
-                inst.Value = inst._value + value;
-            }
+            inst.CheckedValue(value);
+            
+            //inst._jsonType = inst.CheckedJsonType(JsonType.JsonBoolean);
+            inst._value = value;
+
             return inst;
         }
+
+        #endregion
 
         #endregion
 
@@ -168,7 +190,7 @@ namespace plenidev.Ansible.Api
 
         private static readonly Regex finalNameValidationRe = new("^[A-Za-z_][0-9A-Za-z_]*$", RegexOptions.Compiled);
 
-        private string? CheckedValue(string value)
+        private T CheckedValue([NotNull] T? value)
         {
             ExceptionHelpers.ThrowIfNull(value);
             ExceptionHelpers.ThrowIf(_setOnce && _value != null);
@@ -176,6 +198,15 @@ namespace plenidev.Ansible.Api
 
             return value;
         }
+
+        //private JsonType CheckedJsonType(JsonType jsonType)
+        //{
+        //    ExceptionHelpers.ThrowIf(!(
+        //        _jsonType == JsonType.Undetermined ||
+        //        _jsonType == jsonType
+        //        ));
+        //    return jsonType;
+        //}
 
         private string ToAnsibleNameChecked(string name, AnsibleExtraVarNameOptions options)
         {
@@ -243,39 +274,46 @@ namespace plenidev.Ansible.Api
 
         #endregion
 
-        #region Json Composition
+    }
+
+    class AnsibleStringVariable: AnsibleVariableBase<string>, IAnsibleVariable
+    {
+        internal AnsibleStringVariable(string name, bool setOnce, AnsibleExtraVarNameOptions? opts = null) : base(name, setOnce, opts){}
+
+        object IAnsibleVariable.Value => Value;
 
         public string ToJsonString(bool compact = true)
         {
-            var assign = compact ? ":" : ": ";
-            var escapedValue = JsonEscaped(Value, quoted: false);
-            return $"\"{Name}\"{assign}\"{escapedValue}\"";
+            return JsonHelpers.GetPropertyString(_name, Value, compact);
         }
-
-        private object JsonEscaped(string value, bool quoted)
-        {
-            var sb = new StringBuilder();
-            foreach(var c in value.ToCharArray())
-            {
-                switch (c)
-                {
-                    case  '"': sb.Append(@"\"""); break;
-                    case '\\': sb.Append(@"\"""); break;
-                    case  '/': sb.Append(@"\"""); break;
-                    case '\t': sb.Append(@"\"""); break;
-                    case '\r': sb.Append(@"\"""); break;
-                    case '\n': sb.Append(@"\"""); break;
-                    case '\b': sb.Append(@"\"""); break;
-                    case '\f': sb.Append(@"\"""); break;
-                    default: sb.Append(c); break;
-                }
-            }
-            return quoted ? $"\"{sb}\"" : $"{sb}";
-        }
-
-        #endregion
-
     }
+
+    class AnsibleIntVariable : AnsibleVariableBase<int>, IAnsibleVariable
+    {
+        internal AnsibleIntVariable(string name, bool setOnce, AnsibleExtraVarNameOptions? opts = null) : base(name, setOnce, opts) { }
+
+        object IAnsibleVariable.Value => Value;
+
+        public string ToJsonString(bool compact = true)
+        {
+            return JsonHelpers.GetPropertyString(_name, Value, compact);
+        }
+    }
+
+    class AnsibleBooleanVariable : AnsibleVariableBase<bool>, IAnsibleVariable
+    {
+        internal AnsibleBooleanVariable(string name, bool setOnce, AnsibleExtraVarNameOptions? opts = null) : base(name, setOnce, opts) { }
+
+        object IAnsibleVariable.Value => Value;
+
+        public string ToJsonString(bool compact = true)
+        {
+            return JsonHelpers.GetPropertyString(_name, Value, compact);
+        }
+    }
+
+
+
 
     /// <summary>
     /// <para>
@@ -296,7 +334,7 @@ namespace plenidev.Ansible.Api
     /// <typeparam name="T"></typeparam>
     public class AnsibleExtraVarsBase<T> where T: AnsibleExtraVarsBase<T>
     {
-        private readonly Dictionary<string, AnsibleExtraVar> _data = [];
+        private readonly Dictionary<string, IAnsibleVariable> _data = [];
 
         private readonly AnsibleExtraVarNameOptions _options;
         private readonly bool _setOnce = false;
@@ -348,9 +386,9 @@ namespace plenidev.Ansible.Api
         /// </para>
         /// </summary>
         /// <returns></returns>
-        protected AnsibleExtraVar BaseGet([CallerMemberName] string key = "")
+        protected AnsibleVariableBase<V> BaseGet<V>([CallerMemberName] string key = "")
         {
-            return BaseGetForKey(key);
+            return BaseGetForKey<V>(key);
         }
 
         /// <summary>
@@ -363,22 +401,22 @@ namespace plenidev.Ansible.Api
         /// </summary>
         /// <param name="key">nameof(&lt;DefiningProperty>)</param>
         /// <returns></returns>
-        protected AnsibleExtraVar BaseGetForKey(string key)
+        protected AnsibleVariableBase<V> BaseGetForKey<V>(string key)
         { 
-            return GetItemAddIfNeeded(key);
+            return GetItemAddIfNeeded<V>(key);
         }
 
-        private AnsibleExtraVar GetItemAddIfNeeded(string key)
+        private AnsibleVariableBase<V> GetItemAddIfNeeded<V>(string key)
         {
             if(_data.TryGetValue(key, out var value)) { 
-                return value; 
+                return (value as AnsibleVariableBase<V>)!; 
             }
 
             ExceptionHelpers.ThrowIf(_readonly);
 
-            value = new AnsibleExtraVar(key, _setOnce, _options);
-            _data.Add(key, value);
-            return value;
+            value = new AnsibleVariableBase<V>(key, _setOnce, _options) as IAnsibleVariable;
+            _data.Add(key, value!);
+            return (value as AnsibleVariableBase<V>)!;
 
         }
 
@@ -401,7 +439,7 @@ namespace plenidev.Ansible.Api
         /// </summary>
         /// <param name="value"></param>
         /// <exception cref="InvalidOperationException"></exception>
-        protected void BaseSet(AnsibleExtraVar value, [CallerMemberName] string key = "")
+        protected void BaseSet<V>(AnsibleVariableBase<V> value, [CallerMemberName] string key = "")
         {
             BaseSet(key, value);
         }
@@ -422,13 +460,13 @@ namespace plenidev.Ansible.Api
         /// <param name="key">nameof(&tl;property>)</param>
         /// <param name="value"></param>
         /// <exception cref="InvalidOperationException"></exception>
-        protected void BaseSet(string key, AnsibleExtraVar value)
+        protected void BaseSet<V>(string key, AnsibleVariableBase<V> value)
         {
-            var inst = _data[key];
+            var inst = (_data[key] as AnsibleVariableBase<V>)!;
 
             ExceptionHelpers.ThrowIf(inst.Name != value.Name);
-
-            if(inst.Value == value.Value)
+            
+            if (EqualityComparer<V>.Default.Equals(inst.Value, value.Value))
             {
                 // avoids triggering setOnce logic when += has 
                 // been used.
@@ -453,7 +491,7 @@ namespace plenidev.Ansible.Api
         /// </summary>
         /// <param name="value"></param>
         /// <exception cref="InvalidOperationException"></exception>
-        protected void BaseSetConcatOnly(AnsibleExtraVar value, [CallerMemberName] string key = "")
+        protected void BaseSetConcatOnly<V>(AnsibleVariableBase<V> value, [CallerMemberName] string key = "")
         {
             BaseSetConcatOnly(key, value);
         }
@@ -474,13 +512,13 @@ namespace plenidev.Ansible.Api
         /// <param name="key">nameof(&lt;property>)</param>
         /// <param name="value"></param>
         /// <exception cref="InvalidOperationException"></exception>
-        protected void BaseSetConcatOnly(string key, AnsibleExtraVar value)
+        protected void BaseSetConcatOnly<V>(string key, AnsibleVariableBase<V> value)
         {
-            var inst = _data[key];
+            var inst = (_data[key] as AnsibleVariableBase<V>)!;
 
             ExceptionHelpers.ThrowIf(inst.Name != value.Name);
 
-            if (inst.Value != value.Value)
+            if (!EqualityComparer<V>.Default.Equals(inst.Value, value.Value))
             {
                 ThrowNotSetViaConcatOperatorException();
             }

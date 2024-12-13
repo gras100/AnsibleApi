@@ -1,0 +1,53 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.11.35312.102
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{C7C8E939-4FCA-4E0B-A733-12323F6C94D3}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "test", "test", "{A8C92620-5326-4813-B266-B5E31B057930}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ansible.Api", "src\Ansible.Api\Ansible.Api.csproj", "{1E316030-DB7A-4417-9ECA-9D6641D361FB}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AnsiblePlayer", "src\AnsiblePlayer\AnsiblePlayer.csproj", "{88A704C3-78CC-4854-97FC-3634BF9DA6C8}"
+EndProject
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "AnsibleApiTests.FSharp", "test\AnsibleApiTests.FSharp\AnsibleApiTests.FSharp.fsproj", "{750D69B9-751F-41D0-98C8-CCB40B1D0697}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AnsiblePlayer.Tests", "test\AnsiblePlayer.Tests\AnsiblePlayer.Tests.csproj", "{70A7F258-04B1-47A8-8A14-534DE3B9A6D2}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{1E316030-DB7A-4417-9ECA-9D6641D361FB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1E316030-DB7A-4417-9ECA-9D6641D361FB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1E316030-DB7A-4417-9ECA-9D6641D361FB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1E316030-DB7A-4417-9ECA-9D6641D361FB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{88A704C3-78CC-4854-97FC-3634BF9DA6C8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{88A704C3-78CC-4854-97FC-3634BF9DA6C8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{88A704C3-78CC-4854-97FC-3634BF9DA6C8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{88A704C3-78CC-4854-97FC-3634BF9DA6C8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{750D69B9-751F-41D0-98C8-CCB40B1D0697}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{750D69B9-751F-41D0-98C8-CCB40B1D0697}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{750D69B9-751F-41D0-98C8-CCB40B1D0697}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{750D69B9-751F-41D0-98C8-CCB40B1D0697}.Release|Any CPU.Build.0 = Release|Any CPU
+		{70A7F258-04B1-47A8-8A14-534DE3B9A6D2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{70A7F258-04B1-47A8-8A14-534DE3B9A6D2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{70A7F258-04B1-47A8-8A14-534DE3B9A6D2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{70A7F258-04B1-47A8-8A14-534DE3B9A6D2}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{1E316030-DB7A-4417-9ECA-9D6641D361FB} = {C7C8E939-4FCA-4E0B-A733-12323F6C94D3}
+		{88A704C3-78CC-4854-97FC-3634BF9DA6C8} = {C7C8E939-4FCA-4E0B-A733-12323F6C94D3}
+		{750D69B9-751F-41D0-98C8-CCB40B1D0697} = {A8C92620-5326-4813-B266-B5E31B057930}
+		{70A7F258-04B1-47A8-8A14-534DE3B9A6D2} = {A8C92620-5326-4813-B266-B5E31B057930}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {0DACD32E-F6FD-45D6-8437-A203C028426F}
+	EndGlobalSection
+EndGlobal
