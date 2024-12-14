@@ -20,7 +20,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<InternalsVisibleTo Include="..\..\src\AnsiblePlayer\$(MSBuildProjectName).Tests.csproj" />
+		<InternalsVisibleTo Include="$(MSBuildProjectName).Tests.csproj" />
 	</ItemGroup>
 
 </Project>
